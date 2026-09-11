@@ -1,0 +1,41 @@
+[
+  {
+    "id": "social",
+    "title": "社会",
+    "icon": "🌏",
+    "description": "地理・歴史の一問一答。歴史は時代別に学習できます。",
+    "tags": [
+      "地理",
+      "歴史",
+      "苦手復習"
+    ],
+    "href": "./social/",
+    "className": "social"
+  },
+  {
+    "id": "kanji",
+    "title": "高校入試 漢字",
+    "icon": "🈶",
+    "description": "読み取り・書き取りを第1回〜第15回まで学習できます。",
+    "tags": [
+      "読み",
+      "書き",
+      "苦手復習"
+    ],
+    "href": "./kanji/",
+    "className": "kanji"
+  },
+  {
+    "id": "english",
+    "title": "英単語",
+    "icon": "🔤",
+    "description": "英語→日本語、日本語→英語の両方向で練習できます。",
+    "tags": [
+      "発音",
+      "両方向",
+      "苦手復習"
+    ],
+    "href": "./english/",
+    "className": "english"
+  }
+]

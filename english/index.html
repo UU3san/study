@@ -36,15 +36,10 @@ button{cursor:pointer;font-weight:650} button:active{transform:translateY(1px)}
 .empty{background:#fff;border:1px dashed var(--line);border-radius:18px;padding:25px 16px;text-align:center;color:var(--muted);line-height:1.7}
 .note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:12px}
 @media(max-width:640px){.filters{grid-template-columns:1fr 1fr}.tools{grid-template-columns:1fr 1fr}.lookup{grid-template-columns:1fr}.nav{grid-template-columns:1fr 1fr}.question{font-size:1.45rem}}
-
-.homeLink{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:8px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:650}
-.homeLink:active{transform:translateY(1px)}
-
-</style>
-</head>
+.homeLink{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:8px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:650}.homeLink:active{transform:translateY(1px)}</style>
+<meta name="theme-color" content="#2563EB"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="学習カード"><link rel="manifest" href="../manifest.webmanifest"><link rel="apple-touch-icon" href="../apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png"></head>
 <body>
-<div class="wrap">
-<a class="homeLink" href="../">← ホームへ戻る</a>
+<div class="wrap"><a class="homeLink" href="../">← ホームへ戻る</a>
 <h1>高校入試 英単語 一問一答</h1>
 
 <div class="sectionTitle">学習するユーザー</div>
@@ -260,5 +255,5 @@ document.getElementById('clearWeak').onclick=()=>{if(confirm('「覚えていな
 document.getElementById('clearAll').onclick=()=>{if(confirm('このユーザーの学習記録と苦手頻度をすべてリセットしますか？')){state=freshState();save();render()}};
 loadUsers();loadState();renderUsers();render();
 </script>
-</body>
+<script>if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('../service-worker.js'));</script></body>
 </html>

@@ -46,7 +46,7 @@ select,button{min-height:47px;border:1px solid var(--line);border-radius:13px;ba
 
 <div class="status"><span class="chip" id="progress">0 / 0</span><span class="chip" id="weakCount">覚えていない 0</span><span class="chip" id="learnedCount">覚えた 0</span><span class="chip" id="freqCount">2回以上ミス 0</span></div>
 <div id="statsPanel" style="display:none;margin-bottom:11px;"></div><div id="main"></div>
-<div class="note">中1は教科書単語の Unit1〜2 / Unit3〜4 を収録しています。中3はこれまでの英単語99語句です。学習記録・苦手頻度は学年ごとにそのまま蓄積されます。</div>
+<div class="note">中1は Unit1〜2 を4グループ、Unit3〜4 を5グループに分け、1回あたり約20問で学習できます。中3はこれまでの英単語99語句です。学習記録・苦手頻度は学年ごとにそのまま蓄積されます。</div>
 </div>
 
 <script>
@@ -82,7 +82,18 @@ function deleteUser(){if(users.length<=1){alert('ユーザーは1人以上必要
 function weakTimes(id){return Number((state.weakCounts||{})[id]||0)}
 
 function rangesForGrade(){
-  if(state.grade==='1') return [['all','全範囲'],['u12','Unit1〜2'],['u34','Unit3〜4']];
+  if(state.grade==='1') return [
+    ['all','全範囲'],
+    ['u12a','Unit1〜2①（1〜20）'],
+    ['u12b','Unit1〜2②（21〜40）'],
+    ['u12c','Unit1〜2③（41〜60）'],
+    ['u12d','Unit1〜2④（61〜83）'],
+    ['u34a','Unit3〜4①（1〜20）'],
+    ['u34b','Unit3〜4②（21〜40）'],
+    ['u34c','Unit3〜4③（41〜60）'],
+    ['u34d','Unit3〜4④（61〜80）'],
+    ['u34e','Unit3〜4⑤（81〜100）']
+  ];
   return [['all','全13セット'],...Array.from({length:13},(_,i)=>['set'+(i+1),'セット'+(i+1)])];
 }
 function updateRangeOptions(){
@@ -92,7 +103,30 @@ function updateRangeOptions(){
   sel.value=state.range;
 }
 function baseCards(){
-  return CARDS.filter(c=>String(c.grade)===state.grade && (state.direction==='both'||c.dir===state.direction) && (state.range==='all'||c.range===state.range));
+  return CARDS.filter(c=>{
+    if(String(c.grade)!==state.grade) return false;
+    if(!(state.direction==='both'||c.dir===state.direction)) return false;
+    if(state.range==='all') return true;
+
+    if(state.grade==='1'){
+      const n=c.seq;
+      if(state.range==='u12a') return c.range==='u12' && n>=1 && n<=20;
+      if(state.range==='u12b') return c.range==='u12' && n>=21 && n<=40;
+      if(state.range==='u12c') return c.range==='u12' && n>=41 && n<=60;
+      if(state.range==='u12d') return c.range==='u12' && n>=61 && n<=83;
+
+      // Unit3〜4 は中1データ全体の seq 84〜183 なので、表示上の 1〜100 に対応させる。
+      const u34n=n-83;
+      if(state.range==='u34a') return c.range==='u34' && u34n>=1 && u34n<=20;
+      if(state.range==='u34b') return c.range==='u34' && u34n>=21 && u34n<=40;
+      if(state.range==='u34c') return c.range==='u34' && u34n>=41 && u34n<=60;
+      if(state.range==='u34d') return c.range==='u34' && u34n>=61 && u34n<=80;
+      if(state.range==='u34e') return c.range==='u34' && u34n>=81 && u34n<=100;
+      return false;
+    }
+
+    return c.range===state.range;
+  });
 }
 function filteredCards(){
   let base=baseCards(); if(state.weakOnly){const w=new Set(state.weakIds);base=base.filter(c=>w.has(c.id))}
@@ -117,7 +151,15 @@ function render(){
   const w=document.getElementById('weakOnly');w.textContent='覚えていないだけ：'+(state.weakOnly?'ON':'OFF');w.classList.toggle('active',state.weakOnly);
   ensureOrder();const c=current();document.getElementById('progress').textContent=state.order.length?`${state.index+1} / ${state.order.length}`:'0 / 0';document.getElementById('weakCount').textContent='覚えていない '+state.weakIds.length;document.getElementById('learnedCount').textContent='覚えた '+state.learnedIds.length;document.getElementById('freqCount').textContent='2回以上ミス '+baseCards().filter(x=>weakTimes(x.id)>=2).length;renderStats();
   const main=document.getElementById('main');if(!c){main.innerHTML='<div class="empty"><b>表示する問題がありません。</b><br>条件を変えるか、通常モードに戻してください。</div>';return}
-  const dirLabel=c.dir==='ej'?'英語 → 日本語':'日本語 → 英語';const sourceMeta=c.grade===1?`${c.rangeLabel}${c.sourceNo?` / No.${c.sourceNo}`:''}`:c.rangeLabel;
+  const dirLabel=c.dir==='ej'?'英語 → 日本語':'日本語 → 英語';
+  let sourceMeta=c.rangeLabel;
+  if(c.grade===1){
+    const labelMap={
+      u12a:'Unit1〜2①',u12b:'Unit1〜2②',u12c:'Unit1〜2③',u12d:'Unit1〜2④',
+      u34a:'Unit3〜4①',u34b:'Unit3〜4②',u34c:'Unit3〜4③',u34d:'Unit3〜4④',u34e:'Unit3〜4⑤'
+    };
+    sourceMeta=(labelMap[state.range]||c.rangeLabel)+(c.sourceNo?` / No.${c.sourceNo}`:'');
+  }
   main.innerHTML=`<button class="card" id="card" type="button"><div class="meta">中${c.grade}　${sourceMeta}　${dirLabel}</div><div class="side">${state.showAnswer?'答え':'問題'}</div><div class="${state.showAnswer?'answer':'question'}">${esc(state.showAnswer?c.a:c.q)}</div><div class="status" style="margin-top:14px;margin-bottom:0"><span class="chip">覚えていない累計 ${weakTimes(c.id)}回</span></div>${state.showAnswer&&c.note?`<div class="noteBox">※ ${esc(c.note)}</div>`:''}<div class="hint">カードをタッチすると${state.showAnswer?'問題に戻ります':'答えが出ます'}</div></button><div class="lookup"><button id="speakBtn">🔊 発音</button>${state.showAnswer?'<button id="aiBtn">🤖 AIに聞く</button><button id="searchBtn">🔎 Web検索</button>':''}</div><div class="actions"><button class="danger" id="weakBtn">覚えていない</button><button class="success" id="learnedBtn">覚えた</button></div><div class="nav"><button id="prevBtn">← 前へ</button><button id="flipBtn">${state.showAnswer?'問題を見る':'答えを見る'}</button><button id="nextBtn">次へ →</button><button id="removeWeakBtn">要復習から外す</button></div>`;
   document.getElementById('card').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('flipBtn').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('prevBtn').onclick=prev;document.getElementById('nextBtn').onclick=next;document.getElementById('weakBtn').onclick=markWeak;document.getElementById('learnedBtn').onclick=markLearned;document.getElementById('removeWeakBtn').onclick=()=>{state.weakIds=state.weakIds.filter(id=>id!==c.id);save();render()};document.getElementById('speakBtn').onclick=()=>speakEnglish(c.en);if(state.showAnswer){document.getElementById('aiBtn').onclick=()=>aiAsk(c);document.getElementById('searchBtn').onclick=()=>webSearch(c)}
 }

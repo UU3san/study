@@ -24,7 +24,7 @@ select,button{min-height:47px;border:1px solid var(--line);border-radius:13px;ba
 .hint{font-size:13px;color:var(--muted);margin-top:16px}.actions,.nav,.lookup{display:grid;gap:9px;margin-top:10px}.actions{grid-template-columns:1fr 1fr}.lookup{grid-template-columns:repeat(3,1fr)}.nav{grid-template-columns:repeat(4,1fr)}.empty{background:#fff;border:1px dashed var(--line);border-radius:18px;padding:25px 16px;text-align:center;color:var(--muted);line-height:1.7}
 .note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:12px}.homeLink{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:8px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:650}
 @media(max-width:720px){.filters{grid-template-columns:1fr 1fr}.tools{grid-template-columns:1fr 1fr}.lookup{grid-template-columns:1fr}.nav{grid-template-columns:1fr 1fr}.question{font-size:1.45rem}}
-</style>
+.actions{grid-template-columns:repeat(3,1fr)!important}.hardbtn{background:#fff7d6;border-color:#e7c65b;color:#725400}.hardbtn.active{background:#ffe88a;border-color:#d7aa00;outline:3px solid rgba(215,170,0,.15)}</style>
 </head>
 <body>
 <div class="wrap">
@@ -40,11 +40,12 @@ select,button{min-height:47px;border:1px solid var(--line);border-radius:13px;ba
   <div><label>範囲</label><select id="rangeSel"></select></div>
   <div><label>復習</label><button id="weakOnly" class="primary" style="width:100%">覚えていないだけ：OFF</button></div>
 </div>
+<div class="grid freqbar"><button id="hardOnly" class="hardbtn">★ 苦手だけ：OFF</button><button id="clearHard">苦手登録を消す</button></div>
 
 <div class="grid tools"><button id="shuffle">シャッフル</button><button id="resetOrder">元の順番</button><button id="clearWeak">要復習を消す</button><button id="clearAll">このユーザーをリセット</button></div>
 <div class="grid freqbar"><select id="freqMin"><option value="0">苦手頻度：通常</option><option value="2">2回以上ミスだけ</option><option value="3">3回以上ミスだけ</option><option value="5">5回以上ミスだけ</option><option value="10">10回以上ミスだけ</option></select><button id="showStats">📊 苦手集計を見る</button></div>
 
-<div class="status"><span class="chip" id="progress">0 / 0</span><span class="chip" id="weakCount">覚えていない 0</span><span class="chip" id="learnedCount">覚えた 0</span><span class="chip" id="freqCount">2回以上ミス 0</span></div>
+<div class="status"><span class="chip" id="progress">0 / 0</span><span class="chip" id="weakCount">覚えていない 0</span><span class="chip" id="learnedCount">覚えた 0</span><span class="chip" id="hardCount">苦手 0</span><span class="chip" id="freqCount">2回以上ミス 0</span></div>
 <div id="statsPanel" style="display:none;margin-bottom:11px;"></div><div id="main"></div>
 <div class="note">中1は Unit1〜2 を4グループ、Unit3〜4 を5グループに分け、1回あたり約20問で学習できます。中3はこれまでの英単語99語句です。学習記録・苦手頻度は学年ごとにそのまま蓄積されます。</div>
 </div>
@@ -61,7 +62,7 @@ function makeCards(){
   }); return out;
 }
 const CARDS=makeCards();
-function freshState(){return {grade:'3',direction:'ej',range:'all',weakOnly:false,freqMin:0,weakIds:[],weakCounts:{},learnedIds:[],order:[],index:0,showAnswer:false,showStats:false}}
+function freshState(){return {grade:'3',direction:'ej',range:'all',weakOnly:false,hardOnly:false,freqMin:0,weakIds:[],weakCounts:{},hardIds:[],learnedIds:[],order:[],index:0,showAnswer:false,showStats:false}}
 let state=freshState(),users=[],activeUserId='';
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function userKey(id){return STATE_PREFIX+id} function saveUsers(){localStorage.setItem(USERS_KEY,JSON.stringify(users))} function save(){if(activeUserId)localStorage.setItem(userKey(activeUserId),JSON.stringify(state))}
@@ -73,6 +74,7 @@ function loadState(){
   if(saved && !('range' in saved) && 'set' in saved) state.range=(saved.set==='all'?'all':'set'+saved.set);
   if(!state.weakCounts||typeof state.weakCounts!=='object')state.weakCounts={};
   (state.weakIds||[]).forEach(id=>{if(!state.weakCounts[id])state.weakCounts[id]=1});
+  if(!Array.isArray(state.hardIds))state.hardIds=[];state.hardOnly=!!state.hardOnly;
   state.freqMin=Number(state.freqMin||0);state.showStats=!!state.showStats;
 }
 function renderUsers(){const s=document.getElementById('userSelect');s.innerHTML='';users.forEach(u=>{const o=document.createElement('option');o.value=u.id;o.textContent=u.name;o.selected=u.id===activeUserId;s.appendChild(o)})}
@@ -130,6 +132,7 @@ function baseCards(){
 }
 function filteredCards(){
   let base=baseCards(); if(state.weakOnly){const w=new Set(state.weakIds);base=base.filter(c=>w.has(c.id))}
+  if(state.hardOnly){const h=new Set(state.hardIds);base=base.filter(c=>h.has(c.id))}
   if(state.freqMin>0)base=base.filter(c=>weakTimes(c.id)>=state.freqMin).sort((a,b)=>weakTimes(b.id)-weakTimes(a.id)||a.seq-b.seq||(a.dir==='ej'?-1:1));
   return base;
 }
@@ -139,6 +142,7 @@ function current(){ensureOrder();if(!state.order.length)return null;return CARDS
 function next(){ensureOrder();if(!state.order.length)return;state.index=(state.index+1)%state.order.length;state.showAnswer=false;save();render()}
 function prev(){ensureOrder();if(!state.order.length)return;state.index=(state.index-1+state.order.length)%state.order.length;state.showAnswer=false;save();render()}
 function markWeak(){const c=current();if(!c)return;state.weakCounts[c.id]=weakTimes(c.id)+1;if(!state.weakIds.includes(c.id))state.weakIds.push(c.id);state.learnedIds=state.learnedIds.filter(id=>id!==c.id);next()}
+function toggleHard(){const c=current();if(!c)return;if(state.hardIds.includes(c.id))state.hardIds=state.hardIds.filter(id=>id!==c.id);else state.hardIds.push(c.id);save();render()}
 function markLearned(){const c=current();if(!c)return;if(!state.learnedIds.includes(c.id))state.learnedIds.push(c.id);state.weakIds=state.weakIds.filter(id=>id!==c.id);if(state.weakOnly){state.order=state.order.filter(id=>id!==c.id);if(state.index>=state.order.length)state.index=0;state.showAnswer=false;save();render()}else next()}
 function shuffle(){ensureOrder();for(let i=state.order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[state.order[i],state.order[j]]=[state.order[j],state.order[i]]}state.index=0;state.showAnswer=false;save();render()}
 function resetOrder(){state.order=sourceOrder(filteredCards()).map(c=>c.id);state.index=0;state.showAnswer=false;save();render()}
@@ -148,8 +152,8 @@ function webSearch(c){window.open('https://www.google.com/search?q='+encodeURICo
 function renderStats(){const p=document.getElementById('statsPanel');if(!state.showStats){p.style.display='none';p.innerHTML='';return}const rows=baseCards().filter(c=>weakTimes(c.id)>0).sort((a,b)=>weakTimes(b.id)-weakTimes(a.id)||a.seq-b.seq).slice(0,20);p.style.display='block';if(!rows.length){p.innerHTML='<div class="empty">まだ「覚えていない」の集計がありません。</div>';return}p.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px"><b>📊 苦手ランキング（上位20問）</b>'+rows.map((c,i)=>`<div style="display:grid;grid-template-columns:32px 1fr auto;gap:8px;padding:7px 0;border-top:${i?'1px solid var(--line)':'0'}"><span>${i+1}</span><span>${esc(c.en)} → ${esc(c.ja)}</span><b style="color:var(--red)">${weakTimes(c.id)}回</b></div>`).join('')+'</div>'}
 function render(){
   document.getElementById('grade').value=state.grade;document.getElementById('direction').value=state.direction;updateRangeOptions();document.getElementById('freqMin').value=String(state.freqMin||0);
-  const w=document.getElementById('weakOnly');w.textContent='覚えていないだけ：'+(state.weakOnly?'ON':'OFF');w.classList.toggle('active',state.weakOnly);
-  ensureOrder();const c=current();document.getElementById('progress').textContent=state.order.length?`${state.index+1} / ${state.order.length}`:'0 / 0';document.getElementById('weakCount').textContent='覚えていない '+state.weakIds.length;document.getElementById('learnedCount').textContent='覚えた '+state.learnedIds.length;document.getElementById('freqCount').textContent='2回以上ミス '+baseCards().filter(x=>weakTimes(x.id)>=2).length;renderStats();
+  const w=document.getElementById('weakOnly');w.textContent='覚えていないだけ：'+(state.weakOnly?'ON':'OFF');w.classList.toggle('active',state.weakOnly);const hb=document.getElementById('hardOnly');hb.textContent='★ 苦手だけ：'+(state.hardOnly?'ON':'OFF');hb.classList.toggle('active',state.hardOnly);
+  ensureOrder();const c=current();document.getElementById('progress').textContent=state.order.length?`${state.index+1} / ${state.order.length}`:'0 / 0';document.getElementById('weakCount').textContent='覚えていない '+state.weakIds.length;document.getElementById('learnedCount').textContent='覚えた '+state.learnedIds.length;document.getElementById('hardCount').textContent='苦手 '+state.hardIds.length;document.getElementById('freqCount').textContent='2回以上ミス '+baseCards().filter(x=>weakTimes(x.id)>=2).length;renderStats();
   const main=document.getElementById('main');if(!c){main.innerHTML='<div class="empty"><b>表示する問題がありません。</b><br>条件を変えるか、通常モードに戻してください。</div>';return}
   const dirLabel=c.dir==='ej'?'英語 → 日本語':'日本語 → 英語';
   let sourceMeta=c.rangeLabel;
@@ -160,15 +164,17 @@ function render(){
     };
     sourceMeta=(labelMap[state.range]||c.rangeLabel)+(c.sourceNo?` / No.${c.sourceNo}`:'');
   }
-  main.innerHTML=`<button class="card" id="card" type="button"><div class="meta">中${c.grade}　${sourceMeta}　${dirLabel}</div><div class="side">${state.showAnswer?'答え':'問題'}</div><div class="${state.showAnswer?'answer':'question'}">${esc(state.showAnswer?c.a:c.q)}</div><div class="status" style="margin-top:14px;margin-bottom:0"><span class="chip">覚えていない累計 ${weakTimes(c.id)}回</span></div>${state.showAnswer&&c.note?`<div class="noteBox">※ ${esc(c.note)}</div>`:''}<div class="hint">カードをタッチすると${state.showAnswer?'問題に戻ります':'答えが出ます'}</div></button><div class="lookup"><button id="speakBtn">🔊 発音</button>${state.showAnswer?'<button id="aiBtn">🤖 AIに聞く</button><button id="searchBtn">🔎 Web検索</button>':''}</div><div class="actions"><button class="danger" id="weakBtn">覚えていない</button><button class="success" id="learnedBtn">覚えた</button></div><div class="nav"><button id="prevBtn">← 前へ</button><button id="flipBtn">${state.showAnswer?'問題を見る':'答えを見る'}</button><button id="nextBtn">次へ →</button><button id="removeWeakBtn">要復習から外す</button></div>`;
-  document.getElementById('card').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('flipBtn').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('prevBtn').onclick=prev;document.getElementById('nextBtn').onclick=next;document.getElementById('weakBtn').onclick=markWeak;document.getElementById('learnedBtn').onclick=markLearned;document.getElementById('removeWeakBtn').onclick=()=>{state.weakIds=state.weakIds.filter(id=>id!==c.id);save();render()};document.getElementById('speakBtn').onclick=()=>speakEnglish(c.en);if(state.showAnswer){document.getElementById('aiBtn').onclick=()=>aiAsk(c);document.getElementById('searchBtn').onclick=()=>webSearch(c)}
+  main.innerHTML=`<button class="card" id="card" type="button"><div class="meta">中${c.grade}　${sourceMeta}　${dirLabel}</div><div class="side">${state.showAnswer?'答え':'問題'}</div><div class="${state.showAnswer?'answer':'question'}">${esc(state.showAnswer?c.a:c.q)}</div><div class="status" style="margin-top:14px;margin-bottom:0"><span class="chip">覚えていない累計 ${weakTimes(c.id)}回</span></div>${state.showAnswer&&c.note?`<div class="noteBox">※ ${esc(c.note)}</div>`:''}<div class="hint">必要なら先に「★ 苦手」を押し、そのあと「覚えていない」または「覚えた」を押すと次の問題へ進みます。<br>カードをタッチすると${state.showAnswer?'問題に戻ります':'答えが出ます'}</div></button><div class="lookup"><button id="speakBtn">🔊 発音</button>${state.showAnswer?'<button id="aiBtn">🤖 AIに聞く</button><button id="searchBtn">🔎 Web検索</button>':''}</div><div class="actions"><button class="hardbtn ${state.hardIds.includes(c.id)?'active':''}" id="hardBtn">${state.hardIds.includes(c.id)?'★ 苦手解除':'★ 苦手'}</button><button class="danger" id="weakBtn">覚えていない</button><button class="success" id="learnedBtn">覚えた</button></div><div class="nav"><button id="prevBtn">← 前へ</button><button id="flipBtn">${state.showAnswer?'問題を見る':'答えを見る'}</button><button id="nextBtn">次へ →</button><button id="removeWeakBtn">要復習から外す</button></div>`;
+  document.getElementById('card').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('flipBtn').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('prevBtn').onclick=prev;document.getElementById('nextBtn').onclick=next;document.getElementById('weakBtn').onclick=markWeak;document.getElementById('learnedBtn').onclick=markLearned;document.getElementById('hardBtn').onclick=toggleHard;document.getElementById('removeWeakBtn').onclick=()=>{state.weakIds=state.weakIds.filter(id=>id!==c.id);save();render()};document.getElementById('speakBtn').onclick=()=>speakEnglish(c.en);if(state.showAnswer){document.getElementById('aiBtn').onclick=()=>aiAsk(c);document.getElementById('searchBtn').onclick=()=>webSearch(c)}
 }
 document.getElementById('userSelect').onchange=e=>switchUser(e.target.value);document.getElementById('addUser').onclick=addUser;document.getElementById('deleteUser').onclick=deleteUser;
 document.getElementById('grade').onchange=e=>{state.grade=e.target.value;state.range='all';state.order=[];state.index=0;state.showAnswer=false;save();render()};
 document.getElementById('direction').onchange=e=>{state.direction=e.target.value;state.order=[];state.index=0;state.showAnswer=false;save();render()};
 document.getElementById('rangeSel').onchange=e=>{state.range=e.target.value;state.order=[];state.index=0;state.showAnswer=false;save();render()};
-document.getElementById('weakOnly').onclick=()=>{state.weakOnly=!state.weakOnly;if(state.weakOnly)state.freqMin=0;state.order=[];state.index=0;state.showAnswer=false;save();render()};
-document.getElementById('freqMin').onchange=e=>{state.freqMin=Number(e.target.value||0);if(state.freqMin>0)state.weakOnly=false;state.order=[];state.index=0;state.showAnswer=false;save();render()};
+document.getElementById('weakOnly').onclick=()=>{state.weakOnly=!state.weakOnly;if(state.weakOnly){state.hardOnly=false;state.freqMin=0;}state.order=[];state.index=0;state.showAnswer=false;save();render()};
+document.getElementById('hardOnly').onclick=()=>{state.hardOnly=!state.hardOnly;if(state.hardOnly){state.weakOnly=false;state.freqMin=0;}state.order=[];state.index=0;state.showAnswer=false;save();render()};
+document.getElementById('clearHard').onclick=()=>{if(confirm('苦手登録をすべて消しますか？')){state.hardIds=[];state.hardOnly=false;state.order=[];state.index=0;save();render()}};
+document.getElementById('freqMin').onchange=e=>{state.freqMin=Number(e.target.value||0);if(state.freqMin>0){state.weakOnly=false;state.hardOnly=false;}state.order=[];state.index=0;state.showAnswer=false;save();render()};
 document.getElementById('showStats').onclick=()=>{state.showStats=!state.showStats;save();render()};document.getElementById('shuffle').onclick=shuffle;document.getElementById('resetOrder').onclick=resetOrder;
 document.getElementById('clearWeak').onclick=()=>{if(confirm('「覚えていない」の現在の登録をすべて消しますか？\n※累計ミス回数は残します。')){state.weakIds=[];state.order=[];state.index=0;save();render()}};
 document.getElementById('clearAll').onclick=()=>{if(confirm('このユーザーの学習記録と苦手頻度をすべてリセットしますか？')){state=freshState();save();render()}};

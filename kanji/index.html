@@ -237,10 +237,11 @@ function markWeak(){
   const c=current();if(!c)return;
   state.weakCounts[c.id]=weakTimes(c.id)+1;
   if(!state.weakIds.includes(c.id))state.weakIds.push(c.id);
+  if(!state.hardIds.includes(c.id))state.hardIds.push(c.id);
   state.learnedIds=state.learnedIds.filter(id=>id!==c.id);
   next();
 }
-function toggleHard(){const c=current();if(!c)return;if(state.hardIds.includes(c.id))state.hardIds=state.hardIds.filter(id=>id!==c.id);else state.hardIds.push(c.id);save();render();}
+function toggleHard(){const c=current();if(!c||!state.hardIds.includes(c.id))return;state.hardIds=state.hardIds.filter(id=>id!==c.id);save();render();}
 function markLearned(){
   const c=current();if(!c)return;
   if(!state.learnedIds.includes(c.id))state.learnedIds.push(c.id);
@@ -309,7 +310,7 @@ function render(){
           ? `<div class="question">${markedQuestion(c)}</div><div class="answerLabel">${answerLabel}</div><div class="answer">${esc(c.answer)}</div>`
           : `<div class="question">${markedQuestion(c)}</div>`}
         <div class="status" style="margin-top:14px;margin-bottom:0"><span class="chip">覚えていない累計 ${weakTimes(c.id)}回</span></div>
-        <div class="hint">必要なら先に「★ 苦手」を押し、そのあと「覚えていない」または「覚えた」を押すと次の問題へ進みます。<br>カードをタッチすると${state.showAnswer?'問題に戻ります':'答えが出ます'}</div>
+        <div class="hint">「覚えていない」を押すと自動で「苦手」に登録されます。苦手を外すときだけ「★ 苦手解除」を使います。<br>カードをタッチすると${state.showAnswer?'問題に戻ります':'答えが出ます'}</div>
       </div>
     </button>
     ${state.showAnswer?`
@@ -318,7 +319,7 @@ function render(){
         <button id="searchBtn">🔎 Web検索</button>
       </div>`:''}
     <div class="actions">
-      <button class="hardbtn ${state.hardIds.includes(c.id)?'active':''}" id="hardBtn">${state.hardIds.includes(c.id)?'★ 苦手解除':'★ 苦手'}</button>
+      <button class="hardbtn ${state.hardIds.includes(c.id)?'active':''}" id="hardBtn" ${state.hardIds.includes(c.id)?'':'disabled'}>★ 苦手解除</button>
       <button class="danger" id="weakBtn">覚えていない</button>
       <button class="success" id="learnedBtn">覚えた</button>
     </div>

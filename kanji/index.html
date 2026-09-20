@@ -53,7 +53,7 @@ button.active{outline:3px solid rgba(37,99,235,.16);border-color:#7caafc}
   .card{min-height:310px;padding:24px}
   .question{font-size:1.45rem}
 }
-.actions{grid-template-columns:repeat(3,1fr)!important}.hardbtn{background:#fff7d6;border-color:#e7c65b;color:#725400}.hardbtn.active{background:#ffe88a;border-color:#d7aa00;outline:3px solid rgba(215,170,0,.15)}</style>
+.actions{grid-template-columns:repeat(3,1fr)!important}.hardbtn{background:#fff7d6;border-color:#e7c65b;color:#725400}.hardbtn.active{background:#ffe88a;border-color:#d7aa00;outline:3px solid rgba(215,170,0,.15)}button:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.4)}</style>
 </head>
 <body>
 <div class="wrap">
@@ -319,7 +319,7 @@ function render(){
         <button id="searchBtn">🔎 Web検索</button>
       </div>`:''}
     <div class="actions">
-      <button class="hardbtn ${state.hardIds.includes(c.id)?'active':''}" id="hardBtn" ${state.hardIds.includes(c.id)?'':'disabled'}>★ 苦手解除</button>
+      <button class="hardbtn ${state.hardIds.includes(c.id)?'active':''}" id="hardBtn" ${state.hardIds.includes(c.id)?'':'disabled'}>${state.hardIds.includes(c.id)?'★ 苦手解除':'☆ 苦手登録'}</button>
       <button class="danger" id="weakBtn">覚えていない</button>
       <button class="success" id="learnedBtn">覚えた</button>
     </div>

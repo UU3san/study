@@ -38,5 +38,18 @@
     ],
     "href": "./english/",
     "className": "english"
+  },
+  {
+    "id": "reading",
+    "title": "英文音読",
+    "emoji": "🎤",
+    "description": "教科書英文を音読してスマホで確認。単語タップで文中の意味も表示します。",
+    "href": "reading/",
+    "tags": [
+      "中3",
+      "音読",
+      "発音",
+      "英語"
+    ]
   }
 ]

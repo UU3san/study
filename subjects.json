@@ -43,7 +43,7 @@
     "id": "reading",
     "title": "英文音読",
     "emoji": "🎤",
-    "description": "教科書英文を音読してスマホで確認。単語タップで文中の意味も表示します。",
+    "description": "Unit3・Unit4の本文を百の位ごとに分けて音読練習。音声評価・単語タップ意味・訳表示に対応。",
     "href": "reading/",
     "tags": [
       "中3",

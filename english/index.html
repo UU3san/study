@@ -24,7 +24,10 @@ select,button{min-height:47px;border:1px solid var(--line);border-radius:13px;ba
 .hint{font-size:13px;color:var(--muted);margin-top:16px}.actions,.nav,.lookup{display:grid;gap:9px;margin-top:10px}.actions{grid-template-columns:1fr 1fr}.lookup{grid-template-columns:repeat(3,1fr)}.nav{grid-template-columns:repeat(4,1fr)}.empty{background:#fff;border:1px dashed var(--line);border-radius:18px;padding:25px 16px;text-align:center;color:var(--muted);line-height:1.7}
 .note{font-size:12px;color:var(--muted);line-height:1.6;margin-top:12px}.homeLink{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:8px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:650}
 @media(max-width:720px){.filters{grid-template-columns:1fr 1fr}.tools{grid-template-columns:1fr 1fr}.lookup{grid-template-columns:1fr}.nav{grid-template-columns:1fr 1fr}.question{font-size:1.45rem}}
-.actions{grid-template-columns:repeat(3,1fr)!important}.hardbtn{background:#fff7d6;border-color:#e7c65b;color:#725400}.hardbtn.active{background:#ffe88a;border-color:#d7aa00;outline:3px solid rgba(215,170,0,.15)}button:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.4)}</style>
+.actions{grid-template-columns:repeat(3,1fr)!important}.hardbtn{background:#fff7d6;border-color:#e7c65b;color:#725400}.hardbtn.active{background:#ffe88a;border-color:#d7aa00;outline:3px solid rgba(215,170,0,.15)}button:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.4)}
+.exportPanel{display:none;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:0 0 11px}
+.exportPanel.open{display:block}.exportGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.exportGrid .full{grid-column:1/-1}.exportHelp{font-size:12px;color:var(--muted);line-height:1.55;margin-top:8px}@media(max-width:620px){.exportGrid{grid-template-columns:1fr}.exportGrid .full{grid-column:auto}}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -44,10 +47,23 @@ select,button{min-height:47px;border:1px solid var(--line);border-radius:13px;ba
 
 <div class="grid tools"><button id="shuffle">シャッフル</button><button id="resetOrder">元の順番</button><button id="clearWeak">要復習を消す</button><button id="clearAll">このユーザーをリセット</button></div>
 <div class="grid freqbar"><select id="freqMin"><option value="0">苦手頻度：通常</option><option value="2">2回以上ミスだけ</option><option value="3">3回以上ミスだけ</option><option value="5">5回以上ミスだけ</option><option value="10">10回以上ミスだけ</option></select><button id="showStats">📊 苦手集計を見る</button></div>
+<div class="grid freqbar"><button id="toggleExport" class="primary">🖨 一覧・テストをPDF出力</button><button id="quickHardExport">★ 苦手一覧をPDF</button></div>
+<div id="exportPanel" class="exportPanel">
+  <div style="font-weight:800;margin-bottom:9px;">🖨 PDF・テスト出力</div>
+  <div class="exportGrid">
+    <div><label>出力する単語</label><select id="exportTarget" style="width:100%"><option value="hard">★ 苦手登録だけ</option><option value="miss1">1回以上間違えた単語</option><option value="miss2">2回以上間違えた単語</option><option value="miss3">3回以上間違えた単語</option><option value="miss5">5回以上間違えた単語</option><option value="miss10">10回以上間違えた単語</option><option value="current">現在表示中の範囲</option></select></div>
+    <div><label>出力形式</label><select id="exportFormat" style="width:100%"><option value="list">一覧（英語・日本語・ミス回数）</option><option value="testAnswer">テスト＋解答</option><option value="testOnly">テストのみ</option></select></div>
+    <div><label>テスト方向</label><select id="exportDirection" style="width:100%"><option value="current">現在の出題方向</option><option value="je">日本語 → 英語</option><option value="ej">英語 → 日本語</option><option value="both">両方向</option></select></div>
+    <div><label>並び順</label><select id="exportSort" style="width:100%"><option value="mistakes">間違い回数が多い順</option><option value="source">元の順番</option><option value="shuffle">シャッフル</option></select></div>
+    <div><label>1ページの問題数</label><select id="exportPerPage" style="width:100%"><option value="15">15問</option><option value="20" selected>20問</option><option value="25">25問</option><option value="30">30問</option></select></div>
+    <button id="doExport" class="primary full">PDF用画面を作成</button>
+  </div>
+  <div class="exportHelp">中1／中3、範囲、苦手・間違い回数を条件にして出力できます。テストは「日本語→英語」「英語→日本語」「両方向」を選べます。iPhoneではPDF用画面の「印刷・PDF保存」から保存できます。</div>
+</div>
 
 <div class="status"><span class="chip" id="progress">0 / 0</span><span class="chip" id="weakCount">覚えていない 0</span><span class="chip" id="learnedCount">覚えた 0</span><span class="chip" id="hardCount">苦手 0</span><span class="chip" id="freqCount">2回以上ミス 0</span></div>
 <div id="statsPanel" style="display:none;margin-bottom:11px;"></div><div id="main"></div>
-<div class="note">中1は Unit1〜2 を4グループ、Unit3〜4 を5グループに分け、1回あたり約20問で学習できます。中3は既存99語句に今回の追加108語句を加えています。学習記録・苦手頻度は学年ごとにそのまま蓄積されます。</div>
+<div class="note">中1は Unit1〜2 を4グループ、Unit3〜4 を5グループに分け、1回あたり約20問で学習できます。中3は既存99語句に今回の追加108語句を加えています。学習記録・苦手頻度は学年ごとにそのまま蓄積され、苦手・間違い回数から一覧や再テストをPDF出力できます。</div>
 </div>
 
 <script>
@@ -149,6 +165,82 @@ function resetOrder(){state.order=sourceOrder(filteredCards()).map(c=>c.id);stat
 function speakEnglish(text){if(!('speechSynthesis'in window)){alert('この端末では音声読み上げに対応していません。');return}speechSynthesis.cancel();let t=text.replaceAll('～','').replaceAll('…','').replaceAll('...',' ');const u=new SpeechSynthesisUtterance(t);u.lang='en-US';u.rate=.88;speechSynthesis.speak(u)}
 function aiAsk(c){const prompt=`中学生向け英単語を教えてください。\n学年：中${c.grade}\n英語：${c.en}\n日本語：${c.ja}\n意味、品詞、覚え方、短い例文と日本語訳、よくある使い方を分かりやすく説明してください。`;window.open('https://www.perplexity.ai/search?q='+encodeURIComponent(prompt),'_blank','noopener')}
 function webSearch(c){window.open('https://www.google.com/search?q='+encodeURIComponent(`${c.en} 英語 意味 例文 発音`),'_blank','noopener')}
+
+function exportDirectionValue(){const v=document.getElementById('exportDirection').value;return v==='current'?state.direction:v}
+function exportSourceWords(){
+  const grade=Number(state.grade);
+  return WORDS.filter(w=>{
+    if(w.grade!==grade)return false;
+    if(state.range==='all')return true;
+    if(grade===1){
+      const u12n=w.range==='u12'?w.sourceNo:0, u34n=w.range==='u34'?w.sourceNo:0;
+      if(state.range==='u12a')return w.range==='u12'&&u12n>=1&&u12n<=20;
+      if(state.range==='u12b')return w.range==='u12'&&u12n>=21&&u12n<=40;
+      if(state.range==='u12c')return w.range==='u12'&&u12n>=41&&u12n<=60;
+      if(state.range==='u12d')return w.range==='u12'&&u12n>=61&&u12n<=100;
+      if(state.range==='u34a')return w.range==='u34'&&u34n>=1&&u34n<=20;
+      if(state.range==='u34b')return w.range==='u34'&&u34n>=21&&u34n<=40;
+      if(state.range==='u34c')return w.range==='u34'&&u34n>=41&&u34n<=60;
+      if(state.range==='u34d')return w.range==='u34'&&u34n>=61&&u34n<=80;
+      if(state.range==='u34e')return w.range==='u34'&&u34n>=81&&u34n<=100;
+      return false;
+    }
+    return w.range===state.range;
+  });
+}
+function wordMissCount(w){return Math.max(weakTimes(w.id+'-ej'),weakTimes(w.id+'-je'))}
+function wordHard(w){return (state.hardIds||[]).includes(w.id+'-ej')||(state.hardIds||[]).includes(w.id+'-je')}
+function exportWords(target,sort){
+  let rows=exportSourceWords();
+  if(target==='hard')rows=rows.filter(wordHard);
+  else if(target.startsWith('miss')){const n=Number(target.replace('miss',''))||1;rows=rows.filter(w=>wordMissCount(w)>=n)}
+  if(sort==='mistakes')rows.sort((a,b)=>wordMissCount(b)-wordMissCount(a)||a.seq-b.seq);
+  else if(sort==='source')rows.sort((a,b)=>a.seq-b.seq);
+  else if(sort==='shuffle'){for(let i=rows.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rows[i],rows[j]]=[rows[j],rows[i]]}}
+  return rows;
+}
+function buildExportItems(words,dir){
+  const items=[];
+  words.forEach(w=>{
+    if(dir==='je'||dir==='both')items.push({word:w,dir:'je',q:w.ja,a:w.en});
+    if(dir==='ej'||dir==='both')items.push({word:w,dir:'ej',q:w.en,a:w.ja});
+  });
+  return items;
+}
+function chunkRows(arr,n){const out=[];for(let i=0;i<arr.length;i+=n)out.push(arr.slice(i,i+n));return out}
+function exportRangeLabel(){const s=document.getElementById('rangeSel');return s&&s.selectedOptions[0]?s.selectedOptions[0].textContent:'全範囲'}
+function printEnglishDocument(words,format,dir,perPage,targetLabel){
+  if(!words.length){alert('条件に合う単語がありません。');return}
+  const grade=`中${state.grade}`, range=exportRangeLabel();
+  const dirLabel=dir==='je'?'日本語 → 英語':dir==='ej'?'英語 → 日本語':'両方向';
+  const title=`${grade} 英単語 ${format==='list'?'苦手・間違い一覧':'再テスト'}`;
+  let items=format==='list'?words:buildExportItems(words,dir);
+  const groups=chunkRows(items,perPage);
+  const pages=groups.map((g,pi)=>{
+    let body='';
+    if(format==='list'){
+      body=g.map((w,i)=>`<div class="listrow"><div>${pi*perPage+i+1}</div><div class="en">${esc(w.en)}</div><div>${esc(w.ja)}</div><div>${wordMissCount(w)}回</div></div>`).join('');
+      body=`<div class="listhead"><div>No.</div><div>英語</div><div>日本語</div><div>ミス</div></div>${body}`;
+    }else{
+      body=g.map((it,i)=>`<div class="testrow"><div class="n">${pi*perPage+i+1}</div><div class="q"><span class="mini">${it.dir==='je'?'日本語→英語':'英語→日本語'}　ミス${wordMissCount(it.word)}回</span><br>${esc(it.q)}<div class="blank"></div></div></div>`).join('');
+    }
+    return `<section class="page"><header><div><h1>${title}</h1><div>${targetLabel}｜${range}｜${dirLabel}</div></div><div>名前（　　　　　　　　）</div></header>${body}<footer>${pi+1} / ${groups.length}</footer></section>`;
+  }).join('');
+  let answers='';
+  if(format==='testAnswer'){
+    answers=groups.map((g,pi)=>`<section class="page answerpage"><header><div><h1>${title}　解答</h1><div>${targetLabel}｜${range}｜${dirLabel}</div></div></header><div class="anshead"><div>No.</div><div>問題</div><div>答え</div><div>ミス</div></div>${g.map((it,i)=>`<div class="ansrow"><div>${pi*perPage+i+1}</div><div>${esc(it.q)}</div><div class="ans">${esc(it.a)}</div><div>${wordMissCount(it.word)}回</div></div>`).join('')}<footer>解答 ${pi+1} / ${groups.length}</footer></section>`).join('');
+  }
+  const w=window.open('','_blank');if(!w){alert('PDF用画面を開けませんでした。ポップアップを許可してください。');return}
+  w.document.open();w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>
+@page{size:A4 portrait;margin:9mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#111;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif}.toolbar{position:sticky;top:0;background:#fff;padding:10px;text-align:center;border-bottom:1px solid #ccc;z-index:5}.toolbar button{font-size:16px;padding:10px 18px;border-radius:10px;border:1px solid #999;background:#fff;font-weight:700}.page{width:210mm;min-height:297mm;margin:8px auto;background:#fff;padding:10mm;position:relative;page-break-after:always}.page:last-child{page-break-after:auto}header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #222;padding-bottom:5px;margin-bottom:7px;font-size:10pt}h1{font-size:15pt;margin:0 0 3px}.listhead,.listrow,.anshead,.ansrow{display:grid;grid-template-columns:10mm 42mm 1fr 15mm;align-items:center}.listhead,.anshead{background:#f0f0f0;border:1px solid #888;font-weight:700}.listhead>div,.listrow>div,.anshead>div,.ansrow>div{padding:5px}.listrow,.ansrow{border:1px solid #aaa;border-top:0;min-height:10mm;font-size:9.5pt}.en,.ans{font-weight:700}.testrow{display:grid;grid-template-columns:10mm 1fr;border-bottom:1px solid #bbb;min-height:11.5mm;padding:4px 0;break-inside:avoid;font-size:10.5pt}.n{text-align:center;font-weight:700}.mini{font-size:8pt;color:#555}.blank{margin-top:5px;border-bottom:1px solid #222;min-height:5mm}footer{position:absolute;bottom:5mm;left:0;right:0;text-align:center;font-size:8pt;color:#666}@media print{body{background:#fff}.toolbar{display:none}.page{margin:0;width:auto;min-height:0;padding:0}}
+</style></head><body><div class="toolbar"><button onclick="window.print()">🖨 印刷・PDF保存</button><div style="font-size:12px;margin-top:5px">iPhone：印刷画面からPDFとして共有・保存できます</div></div>${pages}${answers}</body></html>`);w.document.close();
+}
+function runEnglishExport(targetOverride){
+  const target=targetOverride||document.getElementById('exportTarget').value, format=targetOverride?'list':document.getElementById('exportFormat').value;
+  const dir=exportDirectionValue(), sort=document.getElementById('exportSort').value, perPage=Number(document.getElementById('exportPerPage').value)||20;
+  const labels={hard:'★ 苦手登録',miss1:'1回以上間違い',miss2:'2回以上間違い',miss3:'3回以上間違い',miss5:'5回以上間違い',miss10:'10回以上間違い',current:'現在の範囲'};
+  printEnglishDocument(exportWords(target,sort),format,dir,perPage,labels[target]||'');
+}
 function renderStats(){const p=document.getElementById('statsPanel');if(!state.showStats){p.style.display='none';p.innerHTML='';return}const rows=baseCards().filter(c=>weakTimes(c.id)>0).sort((a,b)=>weakTimes(b.id)-weakTimes(a.id)||a.seq-b.seq).slice(0,20);p.style.display='block';if(!rows.length){p.innerHTML='<div class="empty">まだ「覚えていない」の集計がありません。</div>';return}p.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px"><b>📊 苦手ランキング（上位20問）</b>'+rows.map((c,i)=>`<div style="display:grid;grid-template-columns:32px 1fr auto;gap:8px;padding:7px 0;border-top:${i?'1px solid var(--line)':'0'}"><span>${i+1}</span><span>${esc(c.en)} → ${esc(c.ja)}</span><b style="color:var(--red)">${weakTimes(c.id)}回</b></div>`).join('')+'</div>'}
 function render(){
   document.getElementById('grade').value=state.grade;document.getElementById('direction').value=state.direction;updateRangeOptions();document.getElementById('freqMin').value=String(state.freqMin||0);
@@ -167,7 +259,7 @@ function render(){
   main.innerHTML=`<button class="card" id="card" type="button"><div class="meta">中${c.grade}　${sourceMeta}　${dirLabel}</div><div class="side">${state.showAnswer?'答え':'問題'}</div><div class="${state.showAnswer?'answer':'question'}">${esc(state.showAnswer?c.a:c.q)}</div><div class="status" style="margin-top:14px;margin-bottom:0"><span class="chip">覚えていない累計 ${weakTimes(c.id)}回</span></div>${state.showAnswer&&c.note?`<div class="noteBox">※ ${esc(c.note)}</div>`:''}<div class="hint">「覚えていない」を押すと自動で「苦手」に登録されます。苦手を外すときだけ「★ 苦手解除」を使います。<br>カードをタッチすると${state.showAnswer?'問題に戻ります':'答えが出ます'}</div></button><div class="lookup"><button id="speakBtn">🔊 発音</button>${state.showAnswer?'<button id="aiBtn">🤖 AIに聞く</button><button id="searchBtn">🔎 Web検索</button>':''}</div><div class="actions"><button class="hardbtn ${state.hardIds.includes(c.id)?'active':''}" id="hardBtn" ${state.hardIds.includes(c.id)?'':'disabled'}>${state.hardIds.includes(c.id)?'★ 苦手解除':'☆ 苦手登録'}</button><button class="danger" id="weakBtn">覚えていない</button><button class="success" id="learnedBtn">覚えた</button></div><div class="nav"><button id="prevBtn">← 前へ</button><button id="flipBtn">${state.showAnswer?'問題を見る':'答えを見る'}</button><button id="nextBtn">次へ →</button><button id="removeWeakBtn">要復習から外す</button></div>`;
   document.getElementById('card').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('flipBtn').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('prevBtn').onclick=prev;document.getElementById('nextBtn').onclick=next;document.getElementById('weakBtn').onclick=markWeak;document.getElementById('learnedBtn').onclick=markLearned;document.getElementById('hardBtn').onclick=toggleHard;document.getElementById('removeWeakBtn').onclick=()=>{state.weakIds=state.weakIds.filter(id=>id!==c.id);save();render()};document.getElementById('speakBtn').onclick=()=>speakEnglish(c.en);if(state.showAnswer){document.getElementById('aiBtn').onclick=()=>aiAsk(c);document.getElementById('searchBtn').onclick=()=>webSearch(c)}
 }
-document.getElementById('userSelect').onchange=e=>switchUser(e.target.value);document.getElementById('addUser').onclick=addUser;document.getElementById('deleteUser').onclick=deleteUser;
+document.getElementById('toggleExport').onclick=()=>document.getElementById('exportPanel').classList.toggle('open');document.getElementById('doExport').onclick=()=>runEnglishExport();document.getElementById('quickHardExport').onclick=()=>runEnglishExport('hard');document.getElementById('userSelect').onchange=e=>switchUser(e.target.value);document.getElementById('addUser').onclick=addUser;document.getElementById('deleteUser').onclick=deleteUser;
 document.getElementById('grade').onchange=e=>{state.grade=e.target.value;state.range='all';state.order=[];state.index=0;state.showAnswer=false;save();render()};
 document.getElementById('direction').onchange=e=>{state.direction=e.target.value;state.order=[];state.index=0;state.showAnswer=false;save();render()};
 document.getElementById('rangeSel').onchange=e=>{state.range=e.target.value;state.order=[];state.index=0;state.showAnswer=false;save();render()};

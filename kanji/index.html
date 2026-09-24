@@ -53,7 +53,14 @@ button.active{outline:3px solid rgba(37,99,235,.16);border-color:#7caafc}
   .card{min-height:310px;padding:24px}
   .question{font-size:1.45rem}
 }
-.actions{grid-template-columns:repeat(3,1fr)!important}.hardbtn{background:#fff7d6;border-color:#e7c65b;color:#725400}.hardbtn.active{background:#ffe88a;border-color:#d7aa00;outline:3px solid rgba(215,170,0,.15)}button:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.4)}</style>
+.actions{grid-template-columns:repeat(3,1fr)!important}.hardbtn{background:#fff7d6;border-color:#e7c65b;color:#725400}.hardbtn.active{background:#ffe88a;border-color:#d7aa00;outline:3px solid rgba(215,170,0,.15)}button:disabled{opacity:.35;cursor:not-allowed;filter:grayscale(.4)}
+.exportPanel{display:none;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;margin:0 0 11px}
+.exportPanel.open{display:block}
+.exportGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.exportGrid .full{grid-column:1/-1}
+.exportHelp{font-size:12px;color:var(--muted);line-height:1.55;margin-top:8px}
+@media(max-width:620px){.exportGrid{grid-template-columns:1fr}.exportGrid .full{grid-column:auto}}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -106,6 +113,58 @@ button.active{outline:3px solid rgba(37,99,235,.16);border-color:#7caafc}
     <button id="showStats">📊 苦手集計を見る</button>
   </div>
 
+  <div class="grid freqbar">
+    <button id="toggleExport" class="primary">🖨 一覧・テストをPDF出力</button>
+    <button id="quickHardExport">★ 苦手一覧をPDF</button>
+  </div>
+
+  <div id="exportPanel" class="exportPanel">
+    <div style="font-weight:800;margin-bottom:9px;">🖨 PDF・テスト出力</div>
+    <div class="exportGrid">
+      <div>
+        <label>出力する問題</label>
+        <select id="exportTarget" style="width:100%">
+          <option value="hard">★ 苦手登録だけ</option>
+          <option value="miss1">1回以上間違えた問題</option>
+          <option value="miss2">2回以上間違えた問題</option>
+          <option value="miss3">3回以上間違えた問題</option>
+          <option value="miss5">5回以上間違えた問題</option>
+          <option value="miss10">10回以上間違えた問題</option>
+          <option value="current">現在表示中の範囲</option>
+        </select>
+      </div>
+      <div>
+        <label>出力形式</label>
+        <select id="exportFormat" style="width:100%">
+          <option value="list">一覧（答え・間違い回数付き）</option>
+          <option value="testAnswer">テスト＋解答</option>
+          <option value="testOnly">テストのみ</option>
+        </select>
+      </div>
+      <div>
+        <label>並び順</label>
+        <select id="exportSort" style="width:100%">
+          <option value="mistakes">間違い回数が多い順</option>
+          <option value="number">第何回・番号順</option>
+        </select>
+      </div>
+      <div>
+        <label>1ページの問題数</label>
+        <select id="exportPerPage" style="width:100%">
+          <option value="15">15問</option>
+          <option value="20" selected>20問</option>
+          <option value="25">25問</option>
+          <option value="30">30問</option>
+        </select>
+      </div>
+      <button id="doExport" class="primary full">PDF用画面を作成</button>
+    </div>
+    <div class="exportHelp">
+      現在選んでいる「読み取り／書き取り」と「第○回／全回」の範囲を使います。
+      iPhoneではPDF用画面が開いたあと「印刷」からPDFとして保存できます。
+    </div>
+  </div>
+
   <div class="status">
     <span class="chip" id="progress">0 / 0</span>
     <span class="chip" id="weakCount">覚えていない 0</span>
@@ -120,7 +179,7 @@ button.active{outline:3px solid rgba(37,99,235,.16);border-color:#7caafc}
 
   <div class="note">
     問題の下線部分が対象です。カードをタッチすると答えが出ます。<br>
-    「覚えていない」を押した回数も問題ごとに記録します。「2回以上ミスだけ」などを選ぶと、よく間違える問題だけを頻度順に復習できます。記録はユーザーごとに、この端末のブラウザ内へ保存されます。
+    「覚えていない」を押した回数も問題ごとに記録します。「2回以上ミスだけ」などで復習でき、さらに苦手・間違い回数を条件に一覧や再テストをPDF出力できます。記録はユーザーごとに、この端末のブラウザ内へ保存されます。
   </div>
 </div>
 
@@ -270,6 +329,128 @@ function aiAsk(c){
 function webSearch(c){
   window.open('https://www.google.com/search?q='+encodeURIComponent(`${c.target} ${c.answer} 意味 漢字`),'_blank','noopener');
 }
+
+function exportBaseCards(){
+  return CARDS.filter(c=>{
+    const m=state.mode==='both'||c.mode===state.mode;
+    const r=state.round==='all'||c.round===Number(state.round);
+    return m&&r;
+  });
+}
+function getExportCards(target, sort){
+  let rows=exportBaseCards();
+  if(target==='hard'){
+    const h=new Set(state.hardIds||[]);
+    rows=rows.filter(c=>h.has(c.id));
+  }else if(target.startsWith('miss')){
+    const n=Number(target.replace('miss',''))||1;
+    rows=rows.filter(c=>weakTimes(c.id)>=n);
+  }else if(target==='current'){
+    rows=filteredCards().slice();
+  }
+  if(sort==='mistakes'){
+    rows.sort((a,b)=>weakTimes(b.id)-weakTimes(a.id)||a.round-b.round||(a.mode===b.mode?0:(a.mode==='read'?-1:1))||a.num-b.num);
+  }else{
+    rows.sort((a,b)=>a.round-b.round||(a.mode===b.mode?0:(a.mode==='read'?-1:1))||a.num-b.num);
+  }
+  return rows;
+}
+function exportQuestionHtml(c){
+  return markedQuestion(c);
+}
+function chunks(arr,n){
+  const out=[];for(let i=0;i<arr.length;i+=n)out.push(arr.slice(i,i+n));return out;
+}
+function printDocument(rows, format, perPage, targetLabel){
+  if(!rows.length){alert('条件に合う問題がありません。');return;}
+  const user=users.find(u=>u.id===activeUserId);
+  const modeLabel=state.mode==='read'?'読み取り':state.mode==='write'?'書き取り':'読み＋書き';
+  const roundLabel=state.round==='all'?'全16回':`第${state.round}回`;
+  const title=`高校入試 漢字 ${format==='list'?'苦手・間違い一覧':'再テスト'}`;
+  const groups=chunks(rows,perPage);
+  const questionPages=groups.map((group,pageIndex)=>{
+    const body=group.map((c,i)=>{
+      const no=pageIndex*perPage+i+1;
+      const kind=c.mode==='read'?'読み':'書き';
+      if(format==='list'){
+        return `<div class="listrow">
+          <div class="n">${no}</div>
+          <div class="q"><b>第${c.round}回 ${kind} No.${c.num}</b><br>${exportQuestionHtml(c)}</div>
+          <div class="ans">${esc(c.answer)}</div>
+          <div class="miss">${weakTimes(c.id)}回</div>
+        </div>`;
+      }
+      const label=c.mode==='read'?'読み':'答え';
+      return `<div class="testrow">
+        <div class="n">${no}</div>
+        <div class="q"><span class="small">第${c.round}回 ${kind} No.${c.num}</span><br>${exportQuestionHtml(c)}
+          <div class="blank">${label}：</div>
+        </div>
+      </div>`;
+    }).join('');
+    const head=format==='list'
+      ? `<div class="listhead"><div>No.</div><div>問題</div><div>答え</div><div>ミス</div></div>`
+      : '';
+    return `<section class="page"><header><div><h1>${title}</h1><div>${targetLabel}　｜　${roundLabel}　｜　${modeLabel}</div></div><div class="name">名前（　　　　　　　　）</div></header>${head}${body}<footer>${pageIndex+1} / ${groups.length}</footer></section>`;
+  }).join('');
+
+  let answerPages='';
+  if(format==='testAnswer'){
+    const answerGroups=chunks(rows,perPage);
+    answerPages=answerGroups.map((group,pageIndex)=>{
+      const body=group.map((c,i)=>{
+        const no=pageIndex*perPage+i+1;
+        const kind=c.mode==='read'?'読み':'書き';
+        return `<div class="answerrow"><div class="n">${no}</div><div>第${c.round}回 ${kind} No.${c.num}　${exportQuestionHtml(c)}</div><div class="ans2">${esc(c.answer)}</div><div>${weakTimes(c.id)}回</div></div>`;
+      }).join('');
+      return `<section class="page answerpage"><header><div><h1>${title}　解答</h1><div>${targetLabel}　｜　${roundLabel}　｜　${modeLabel}</div></div></header><div class="answerhead"><div>No.</div><div>問題</div><div>答え</div><div>ミス</div></div>${body}<footer>解答 ${pageIndex+1} / ${answerGroups.length}</footer></section>`;
+    }).join('');
+  }
+
+  const w=window.open('','_blank');
+  if(!w){alert('PDF用画面を開けませんでした。ポップアップを許可してください。');return;}
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
+<style>
+@page{size:A4 portrait;margin:9mm}
+*{box-sizing:border-box}body{margin:0;color:#111;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:#eee}
+.page{width:210mm;min-height:297mm;margin:8px auto;background:#fff;padding:10mm 10mm 9mm;position:relative;page-break-after:always}
+.page:last-child{page-break-after:auto}
+header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #222;padding-bottom:5px;margin-bottom:7px;font-size:10pt}
+h1{font-size:15pt;margin:0 0 3px}.name{font-size:10pt}
+.listhead,.listrow{display:grid;grid-template-columns:9mm 1fr 28mm 14mm;align-items:center}
+.listhead,.answerhead{font-weight:700;background:#f0f0f0;border:1px solid #888}
+.listhead>div,.listrow>div{padding:5px;border-right:1px solid #aaa}.listhead>div:last-child,.listrow>div:last-child{border-right:0}
+.listrow{border:1px solid #aaa;border-top:0;min-height:10mm;font-size:9.5pt}.ans{font-weight:700;font-size:12pt;text-align:center}.miss{text-align:center}
+.testrow{display:grid;grid-template-columns:10mm 1fr;border-bottom:1px solid #bbb;min-height:11.7mm;padding:4px 0;break-inside:avoid;font-size:10.5pt}
+.n{text-align:center;font-weight:700}.small{font-size:8pt;color:#555}.blank{margin-top:4px;border-bottom:1px solid #222;min-height:5mm}
+.answerhead,.answerrow{display:grid;grid-template-columns:10mm 1fr 28mm 14mm;align-items:center}
+.answerhead>div,.answerrow>div{padding:5px}.answerrow{border:1px solid #aaa;border-top:0;min-height:10mm;font-size:9.5pt}.ans2{font-size:12pt;font-weight:700;text-align:center}
+.target{font-weight:800;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+footer{position:absolute;bottom:5mm;left:0;right:0;text-align:center;font-size:8pt;color:#666}
+.toolbar{position:sticky;top:0;z-index:10;background:#fff;padding:10px;text-align:center;border-bottom:1px solid #ccc}
+.toolbar button{font-size:16px;padding:10px 18px;border-radius:10px;border:1px solid #999;background:#fff;font-weight:700}
+@media print{body{background:#fff}.toolbar{display:none}.page{margin:0;width:auto;min-height:0;padding:0;box-shadow:none}}
+</style></head><body><div class="toolbar"><button onclick="window.print()">🖨 印刷・PDF保存</button><div style="font-size:12px;margin-top:5px">iPhone：印刷画面からPDFとして共有・保存できます</div></div>${questionPages}${answerPages}</body></html>`);
+  w.document.close();
+}
+function runExport(targetOverride){
+  const target=targetOverride||document.getElementById('exportTarget').value;
+  const format=targetOverride?'list':document.getElementById('exportFormat').value;
+  const sort=document.getElementById('exportSort').value;
+  const perPage=Number(document.getElementById('exportPerPage').value)||20;
+  const labels={
+    hard:'★ 苦手登録',
+    miss1:'1回以上間違い',
+    miss2:'2回以上間違い',
+    miss3:'3回以上間違い',
+    miss5:'5回以上間違い',
+    miss10:'10回以上間違い',
+    current:'現在表示中'
+  };
+  const rows=getExportCards(target,sort);
+  printDocument(rows,format,perPage,labels[target]||'');
+}
 function renderStats(){
   const panel=document.getElementById('statsPanel');if(!panel)return;
   if(!state.showStats){panel.style.display='none';panel.innerHTML='';return;}
@@ -292,7 +473,7 @@ function render(){
   document.getElementById('weakCount').textContent='覚えていない '+state.weakIds.length;
   document.getElementById('learnedCount').textContent='覚えた '+state.learnedIds.length;document.getElementById('hardCount').textContent='苦手 '+state.hardIds.length;document.getElementById('freqCount').textContent='2回以上ミス '+baseCards().filter(c=>weakTimes(c.id)>=2).length;renderStats();
   const m=state.mode==='read'?'読み取り':state.mode==='write'?'書き取り':'読み＋書き';
-  const r=state.round==='all'?'全15回':`第${state.round}回`;
+  const r=state.round==='all'?'全16回':`第${state.round}回`;
   document.getElementById('modeInfo').textContent=`${r} / ${m}`;
   const main=document.getElementById('main');
   if(!c){
@@ -343,6 +524,9 @@ function render(){
     document.getElementById('searchBtn').onclick=()=>webSearch(c);
   }
 }
+document.getElementById('toggleExport').onclick=()=>document.getElementById('exportPanel').classList.toggle('open');
+document.getElementById('doExport').onclick=()=>runExport();
+document.getElementById('quickHardExport').onclick=()=>runExport('hard');
 document.getElementById('userSelect').onchange=e=>switchUser(e.target.value);
 document.getElementById('addUser').onclick=addUser;
 document.getElementById('deleteUser').onclick=deleteUser;

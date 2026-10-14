@@ -27,6 +27,32 @@ textarea{width:100%;min-height:150px;border:1px solid var(--line);border-radius:
 .pill{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}.pill b{display:block;font-size:18px}
 .warn{background:#fff8e6;border:1px solid #efd38e;border-radius:12px;padding:10px;font-size:12px;line-height:1.6;margin-top:9px}
 @media(max-width:620px){.actions,.summary{grid-template-columns:1fr}}
+
+/* 科目切替バー */
+body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}
+.subjectDock{
+  position:fixed;left:0;right:0;bottom:0;z-index:9999;
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:2px;padding:7px 6px calc(7px + env(safe-area-inset-bottom,0px));
+  background:rgba(255,255,255,.96);
+  border-top:1px solid #d8dee8;
+  box-shadow:0 -6px 18px rgba(0,0,0,.08);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.subjectDock a{
+  min-width:0;text-decoration:none;color:#5f6878;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;padding:5px 2px;border-radius:11px;
+  font-size:10px;font-weight:800;line-height:1.15;
+}
+.subjectDock .ico{font-size:20px;line-height:1.1}
+.subjectDock a.active{background:#eaf2ff;color:#174ea6}
+.subjectDock a:active{transform:scale(.97)}
+@media(min-width:760px){
+  .subjectDock{left:50%;right:auto;transform:translateX(-50%);width:min(760px,100%);border:1px solid #d8dee8;border-bottom:0;border-radius:18px 18px 0 0}
+}
+
 </style>
 </head>
 <body>
@@ -210,5 +236,14 @@ document.getElementById('clearImport').onclick=()=>{document.getElementById('imp
 renderSummary();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('../service-worker.js'));
 </script>
+
+<nav class="subjectDock" aria-label="科目切替">
+  <a href="../"><span class="ico">🏠</span><span>ホーム</span></a>
+  <a href="../social/"><span class="ico">🌏</span><span>社会</span></a>
+  <a href="../kanji/"><span class="ico">🈶</span><span>漢字</span></a>
+  <a href="../english/"><span class="ico">🇬🇧</span><span>英単語</span></a>
+  <a href="../reading/"><span class="ico">🎤</span><span>英文音読</span></a>
+</nav>
+
 </body>
 </html>

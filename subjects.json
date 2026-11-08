@@ -54,6 +54,20 @@
     "icon": "🎤"
   },
   {
+    "id": "music",
+    "title": "音楽",
+    "icon": "🎵",
+    "description": "カイト・証の歌詞、音楽用語、ボレロなど全92問。暗記カード・4択・苦手復習。",
+    "tags": [
+      "歌詞",
+      "音楽用語",
+      "ボレロ",
+      "暗記カード"
+    ],
+    "href": "./music/",
+    "className": "music"
+  },
+  {
     "id": "transfer",
     "title": "データ引き継ぎ",
     "icon": "🔐",

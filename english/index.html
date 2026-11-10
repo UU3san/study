@@ -84,6 +84,18 @@ body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}
 .accentGuide .stressDots .u{color:#9aa1aa}
 .accentToggle.active{background:#fff0a8;border-color:#d6ae18;color:#654d00}
 
+
+.unitListPanel{background:#f7fbff;border:1px solid #b8d4f2;border-radius:16px;padding:14px;margin:12px 0}
+.unitListPanel h3{margin:0 0 7px;font-size:17px}
+.unitListPanel .unitListChoices{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
+.unitListPanel .unitListChoices button{border:1px solid #b8c8dc;border-radius:10px;background:#fff;padding:9px 12px;font-weight:700;color:#25364b}
+.unitListPanel .unitListChoices button.selected{background:#ffe49b;border-color:#b78620;color:#503500}
+.unitListPanel .unitListChoices button:focus-visible{outline:3px solid #2673b8}
+.unitListPanel .unitListOptions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.unitListPanel .unitListOptions label{font-size:13px}
+.unitListPanel .unitListOptions select{padding:8px;border-radius:8px}
+.unitListPanel .unitListHint{font-size:12px;line-height:1.6;color:#526075}
+
 </style>
 </head>
 <body>
@@ -113,6 +125,18 @@ body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}
 
 <div class="grid tools"><button id="shuffle">シャッフル</button><button id="resetOrder">元の順番</button><button id="clearWeak">要復習を消す</button><button id="clearAll">このユーザーをリセット</button></div>
 <div class="grid freqbar"><select id="freqMin"><option value="0">苦手頻度：通常</option><option value="2">2回以上ミスだけ</option><option value="3">3回以上ミスだけ</option><option value="5">5回以上ミスだけ</option><option value="10">10回以上ミスだけ</option></select><button id="showStats">📊 苦手集計を見る</button></div>
+
+<section id="unitListPanel" class="unitListPanel" aria-label="単語と意味の一覧PDF">
+  <h3>📄 Unit別 英単語・意味一覧 PDF</h3>
+  <div class="unitListHint">印刷したいUnitを選択（複数選択できます）。単語と日本語の意味を左右に並べたA4一覧を作成します。</div>
+  <div class="unitListChoices" id="unitListChoices"></div>
+  <div class="unitListOptions">
+    <label>並び順 <select id="unitListOrder"><option value="source">教材の順番</option><option value="alpha">アルファベット順</option></select></label>
+    <label>文字サイズ <select id="unitListSize"><option value="normal">標準</option><option value="large">大きめ</option></select></label>
+  </div>
+  <div class="unitListHint" id="unitListCount"></div>
+  <button id="printUnitList" class="primary" type="button">🖨 選んだUnitの一覧をPDF出力</button>
+</section>
 <div class="grid freqbar"><button id="toggleExport" class="primary">🖨 一覧・テストをPDF出力</button><button id="quickHardExport">★ 苦手一覧をPDF</button></div>
 <div id="exportPanel" class="exportPanel">
   <div style="font-weight:800;margin-bottom:9px;">🖨 PDF・テスト出力</div>
@@ -397,11 +421,75 @@ function runEnglishExport(targetOverride){
   const labels={hard:'★ 苦手登録',miss1:'1回以上間違い',miss2:'2回以上間違い',miss3:'3回以上間違い',miss5:'5回以上間違い',miss10:'10回以上間違い',current:'現在の範囲'};
   printEnglishDocument(exportWords(target,sort),format,dir,perPage,labels[target]||'');
 }
+
+// Unit別 英単語・意味一覧（学習状態や出題方向には影響しません）
+let unitListSelected=[];
+function unitListGroups(){
+  const grade=Number(state.grade);
+  if(grade===1)return [...new Set(WORDS.filter(w=>w.grade===1&&w.unit).map(w=>Number(w.unit)))].sort((a,b)=>a-b).map(u=>({key:'u'+u,label:'Unit'+u,match:w=>Number(w.unit)===u}));
+  const groups=[];
+  const seen=new Set();
+  WORDS.filter(w=>w.grade===grade).forEach(w=>{
+    const key=String(w.range||w.set||'all');
+    if(seen.has(key))return;seen.add(key);
+    groups.push({key:'r'+key,label:w.rangeLabel||('範囲 '+key),match:x=>String(x.range||x.set||'all')===key});
+  });
+  return groups;
+}
+function renderUnitList(){
+  const groups=unitListGroups();
+  unitListSelected=unitListSelected.filter(k=>groups.some(g=>g.key===k));
+  const box=document.getElementById('unitListChoices');
+  box.innerHTML=groups.map(g=>`<button type="button" data-listunit="${esc(g.key)}" class="${unitListSelected.includes(g.key)?'selected':''}" aria-pressed="${unitListSelected.includes(g.key)}">${esc(g.label)}</button>`).join('');
+  box.querySelectorAll('button').forEach(btn=>btn.onclick=()=>{
+    const k=btn.dataset.listunit;
+    unitListSelected=unitListSelected.includes(k)?unitListSelected.filter(x=>x!==k):[...unitListSelected,k];
+    renderUnitList();
+  });
+  const chosen=groups.filter(g=>unitListSelected.includes(g.key));
+  const count=WORDS.filter(w=>w.grade===Number(state.grade)&&chosen.some(g=>g.match(w))).length;
+  document.getElementById('unitListCount').textContent=chosen.length?`選択：${chosen.map(g=>g.label).join('・')} ／ ${count}語`:'Unitを選択してください。';
+}
+function printUnitWordList(){
+  const grade=Number(state.grade), groups=unitListGroups().filter(g=>unitListSelected.includes(g.key));
+  if(!groups.length){alert('一覧にするUnitを1つ以上選択してください。');return}
+  const alpha=document.getElementById('unitListOrder').value==='alpha';
+  const large=document.getElementById('unitListSize').value==='large';
+  const sections=[];let total=0;
+  for(const group of groups){
+    let words=WORDS.filter(w=>w.grade===grade&&group.match(w));
+    if(alpha)words.sort((a,b)=>a.en.localeCompare(b.en,'en'));
+    else words.sort((a,b)=>(Number(a.sourceNo||a.seq||0)-Number(b.sourceNo||b.seq||0))||String(a.id).localeCompare(String(b.id)));
+    total+=words.length;
+    const rows=words.map((w,i)=>`<tr><td class="no">${i+1}</td><td class="eng">${esc(w.en)}</td><td class="meaning">${esc(w.ja)}</td></tr>`).join('');
+    sections.push(`<section class="unitSection"><h2>中${grade} 英単語一覧　${esc(group.label)}</h2><p class="sub">${words.length}語　｜　英単語と日本語の意味</p><table><thead><tr><th class="no">No.</th><th>英単語</th><th>日本語の意味</th></tr></thead><tbody>${rows}</tbody></table></section>`);
+  }
+  const title=`中${grade} 英単語・意味一覧（${groups.map(g=>g.label).join('・')}）`;
+  const doc=`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>
+  @page{size:A4 portrait;margin:12mm 13mm}
+  *{box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;color:#172333;background:#edf0f4;margin:0}
+  .toolbar{position:sticky;top:0;background:white;text-align:center;padding:12px;border-bottom:1px solid #ccd2da;z-index:3}
+  .toolbar button{padding:11px 22px;font-weight:bold;font-size:16px;border:1px solid #9da9bb;border-radius:9px;background:#e8f2ff}
+  .toolbar small{display:block;margin-top:5px;color:#526075}
+  .unitSection{width:210mm;margin:12px auto;background:#fff;padding:14mm 13mm;box-shadow:0 2px 8px #0001}
+  h2{font-size:19px;margin:0 0 4px}.sub{font-size:11px;color:#596476;margin:0 0 12px}
+  table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:${large?'13':'11.5'}px}
+  thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}
+  th,td{border:1px solid #b7c0ca;padding:${large?'8px 7px':'5px 7px'};vertical-align:middle;overflow-wrap:anywhere}
+  th{background:#e9f0f8;text-align:left}td.no,th.no{width:11%;text-align:center}td.eng{width:39%;font-family:Arial,sans-serif;font-weight:600;font-size:1.07em}td.meaning{width:50%}
+  .unitSection{break-after:page;page-break-after:always}.unitSection:last-child{break-after:auto;page-break-after:auto}
+  @media print{body{background:white}.toolbar{display:none}.unitSection{width:auto;margin:0;padding:0;box-shadow:none}h2{font-size:17px}thead{display:table-header-group}tr{page-break-inside:avoid}}
+  </style></head><body><div class="toolbar"><button onclick="window.print()">🖨 印刷・PDF保存</button><small>印刷先を「PDFに保存」にしてください。iPhoneは印刷プレビューから共有・保存できます。</small></div>${sections.join('')}</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('PDF用画面を開けませんでした。ポップアップを許可してください。');return}
+  win.document.open();win.document.write(doc);win.document.close();
+}
+
 function renderStats(){const p=document.getElementById('statsPanel');if(!state.showStats){p.style.display='none';p.innerHTML='';return}const rows=baseCards().filter(c=>weakTimes(c.id)>0).sort((a,b)=>weakTimes(b.id)-weakTimes(a.id)||a.seq-b.seq).slice(0,20);p.style.display='block';if(!rows.length){p.innerHTML='<div class="empty">まだ「覚えていない」の集計がありません。</div>';return}p.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px"><b>📊 苦手ランキング（上位20問）</b>'+rows.map((c,i)=>`<div style="display:grid;grid-template-columns:32px 1fr auto;gap:8px;padding:7px 0;border-top:${i?'1px solid var(--line)':'0'}"><span>${i+1}</span><span>${esc(c.en)} → ${esc(c.ja)}</span><b style="color:var(--red)">${weakTimes(c.id)}回</b></div>`).join('')+'</div>'}
 function render(){
   document.getElementById('grade').value=state.grade;document.getElementById('direction').value=state.direction;updateRangeOptions();renderTestScope();document.getElementById('freqMin').value=String(state.freqMin||0);
   const w=document.getElementById('weakOnly');w.textContent='覚えていないだけ：'+(state.weakOnly?'ON':'OFF');w.classList.toggle('active',state.weakOnly);const hb=document.getElementById('hardOnly');hb.textContent='★ 苦手だけ：'+(state.hardOnly?'ON':'OFF');hb.classList.toggle('active',state.hardOnly);
-  ensureOrder();const c=current();document.getElementById('progress').textContent=state.order.length?`${state.index+1} / ${state.order.length}`:'0 / 0';document.getElementById('weakCount').textContent='覚えていない '+state.weakIds.length;document.getElementById('learnedCount').textContent='覚えた '+state.learnedIds.length;document.getElementById('hardCount').textContent='苦手 '+state.hardIds.length;document.getElementById('freqCount').textContent='2回以上ミス '+baseCards().filter(x=>weakTimes(x.id)>=2).length;renderStats();
+  renderUnitList();ensureOrder();const c=current();document.getElementById('progress').textContent=state.order.length?`${state.index+1} / ${state.order.length}`:'0 / 0';document.getElementById('weakCount').textContent='覚えていない '+state.weakIds.length;document.getElementById('learnedCount').textContent='覚えた '+state.learnedIds.length;document.getElementById('hardCount').textContent='苦手 '+state.hardIds.length;document.getElementById('freqCount').textContent='2回以上ミス '+baseCards().filter(x=>weakTimes(x.id)>=2).length;renderStats();
   const main=document.getElementById('main');if(!c){main.innerHTML='<div class="empty"><b>表示する問題がありません。</b><br>条件を変えるか、通常モードに戻してください。</div>';return}
   const dirLabel=c.dir==='ej'?'英語 → 日本語':'日本語 → 英語';
   let sourceMeta=c.rangeLabel;
@@ -413,10 +501,10 @@ function render(){
   main.innerHTML=`<button class="card" id="card" type="button"><div class="meta">中${c.grade}　${sourceMeta}　${dirLabel}</div><div class="side">${state.showAnswer?'答え':'問題'}</div><div class="${state.showAnswer?'answer':'question'}">${esc(state.showAnswer?c.a:c.q)}</div>${accentHtml}<div class="status" style="margin-top:14px;margin-bottom:0"><span class="chip">覚えていない累計 ${weakTimes(c.id)}回</span></div>${state.showAnswer&&c.note?`<div class="noteBox">※ ${esc(c.note)}</div>`:''}<div class="hint">「覚えていない」を押すと自動で「苦手」に登録されます。苦手を外すときだけ「★ 苦手解除」を使います。<br>カードをタッチすると${state.showAnswer?'問題に戻ります':'答えが出ます'}</div></button><div class="lookup"><button id="speakBtn">🔊 発音</button><button id="accentBtn" class="accentToggle ${state.accentShow?'active':''}">🎯 アクセント：${state.accentShow?'ON':'OFF'}</button>${state.showAnswer?'<button id="aiBtn">🤖 AIに聞く</button><button id="searchBtn">🔎 Web検索</button>':''}</div><div class="actions"><button class="hardbtn ${state.hardIds.includes(c.id)?'active':''}" id="hardBtn" ${state.hardIds.includes(c.id)?'':'disabled'}>${state.hardIds.includes(c.id)?'★ 苦手解除':'☆ 苦手登録'}</button><button class="danger" id="weakBtn">覚えていない</button><button class="success" id="learnedBtn">覚えた</button></div><div class="nav"><button id="prevBtn">← 前へ</button><button id="flipBtn">${state.showAnswer?'問題を見る':'答えを見る'}</button><button id="nextBtn">次へ →</button><button id="removeWeakBtn">要復習から外す</button></div>`;
   document.getElementById('card').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('flipBtn').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('prevBtn').onclick=prev;document.getElementById('nextBtn').onclick=next;document.getElementById('weakBtn').onclick=markWeak;document.getElementById('learnedBtn').onclick=markLearned;document.getElementById('hardBtn').onclick=toggleHard;document.getElementById('removeWeakBtn').onclick=()=>{state.weakIds=state.weakIds.filter(id=>id!==c.id);save();render()};document.getElementById('speakBtn').onclick=()=>speakEnglish(c.en);document.getElementById('accentBtn').onclick=()=>{state.accentShow=!state.accentShow;save();render()};if(state.showAnswer){document.getElementById('aiBtn').onclick=()=>aiAsk(c);document.getElementById('searchBtn').onclick=()=>webSearch(c)}
 }
-document.getElementById('toggleExport').onclick=()=>document.getElementById('exportPanel').classList.toggle('open');document.getElementById('doExport').onclick=()=>runEnglishExport();document.getElementById('quickHardExport').onclick=()=>runEnglishExport('hard');document.getElementById('testOnly').onclick=()=>{state.testOnly=!state.testOnly;state.index=0;state.order=[];save();render()};
+document.getElementById('printUnitList').onclick=printUnitWordList;document.getElementById('toggleExport').onclick=()=>document.getElementById('exportPanel').classList.toggle('open');document.getElementById('doExport').onclick=()=>runEnglishExport();document.getElementById('quickHardExport').onclick=()=>runEnglishExport('hard');document.getElementById('testOnly').onclick=()=>{state.testOnly=!state.testOnly;state.index=0;state.order=[];save();render()};
 document.getElementById('clearTestUnits').onclick=()=>{state.testUnits=[];state.testOnly=false;state.index=0;state.order=[];save();render()};
 document.getElementById('userSelect').onchange=e=>switchUser(e.target.value);document.getElementById('addUser').onclick=addUser;document.getElementById('deleteUser').onclick=deleteUser;
-document.getElementById('grade').onchange=e=>{state.grade=e.target.value;state.range='all';state.order=[];state.index=0;state.showAnswer=false;save();render()};
+document.getElementById('grade').onchange=e=>{unitListSelected=[];state.grade=e.target.value;state.range='all';state.order=[];state.index=0;state.showAnswer=false;save();render()};
 document.getElementById('direction').onchange=e=>{state.direction=e.target.value;state.order=[];state.index=0;state.showAnswer=false;save();render()};
 document.getElementById('rangeSel').onchange=e=>{state.range=e.target.value;state.order=[];state.index=0;state.showAnswer=false;save();render()};
 document.getElementById('weakOnly').onclick=()=>{state.weakOnly=!state.weakOnly;if(state.weakOnly){state.hardOnly=false;state.freqMin=0;}state.order=[];state.index=0;state.showAnswer=false;save();render()};

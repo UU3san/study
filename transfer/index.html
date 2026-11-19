@@ -95,7 +95,7 @@ body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}
 </section>
 </div>
 <script>
-const PREFIXES=['social_flashcards_','hs_kanji_','english_vocab_'];
+const PREFIXES=['social_flashcards_','hs_kanji_','english_vocab_','reading28_'];
 const USER_LIST_KEYS=['social_flashcards_users_v1','hs_kanji_users_v1','english_vocab_users_v1'];
 const ACTIVE_KEYS=['social_flashcards_active_user_v1','hs_kanji_active_user_v1','english_vocab_active_v1'];
 
@@ -222,7 +222,7 @@ async function restoreCode(){
       else localStorage.setItem(k,v);
     }
     renderSummary();
-    setStatus('importStatus',`復元しました。${entries.length}件の学習データを読み込みました。社会・漢字・英単語を開いて確認してください。`);
+    setStatus('importStatus',`復元しました。${entries.length}件の学習データを読み込みました。社会・漢字・英単語・28日チャレンジを開いて確認してください。`);
   }catch(e){setStatus('importStatus','復元できませんでした：'+e.message,false)}
 }
 document.getElementById('makeCode').onclick=makeTransferCode;

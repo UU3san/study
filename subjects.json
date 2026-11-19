@@ -40,6 +40,20 @@
     "className": "english"
   },
   {
+    "id": "challenge28",
+    "title": "英語を読む力・28日チャレンジ",
+    "icon": "📖",
+    "description": "中3向け。15語診断から始めてフォニックス→英単語→短文→入試長文を28日間で練習。記録・復習・グラフ付き。",
+    "tags": [
+      "1日20分",
+      "発音",
+      "28日",
+      "入試長文"
+    ],
+    "href": "./challenge28/",
+    "className": "challenge28"
+  },
+  {
     "id": "reading",
     "title": "英文音読",
     "description": "中1・中3（Unit5まで）の教科書英文を音読練習。読み上げ・音読評価・単語検索・AI質問・日本語訳表示に対応。",

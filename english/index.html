@@ -96,6 +96,18 @@ body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}
 .unitListPanel .unitListOptions select{padding:8px;border-radius:8px}
 .unitListPanel .unitListHint{font-size:12px;line-height:1.6;color:#526075}
 
+
+.foldSettings{margin:12px 0;border:1px solid #b8c8da;border-radius:14px;background:#f7fbff;overflow:hidden}
+.foldSettings>summary{cursor:pointer;list-style:none;padding:15px 14px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.foldSettings>summary::-webkit-details-marker{display:none}
+.foldSettings>summary span{font-size:12px;font-weight:600;color:#4a6076;white-space:nowrap}
+.foldSettings>summary:before{content:"▶";font-size:11px;color:#55758f}
+.foldSettings[open]>summary:before{content:"▼"}
+.foldSettings[open]>summary{border-bottom:1px solid #d5e1ed;background:#eaf3fd}
+.foldSettings #testScope{margin:0;border:0;border-radius:0}
+.foldSettings #unitListPanel{margin:0;border:0;border-radius:0}
+.testPrintBox{margin-top:16px;padding:13px;border:1px solid #b5d1e9;border-radius:12px;background:white}
+.testPrintBox>b{display:block;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -113,7 +125,7 @@ body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}
   <div><label>復習</label><button id="weakOnly" class="primary" style="width:100%">覚えていないだけ：OFF</button></div>
 </div>
 
-<div id="testScope" class="testScope">
+<details class="foldSettings" id="testScopeFold"><summary>📝 中1／中3 定期テスト範囲を登録 <span>開く・閉じる</span></summary><div id="testScope" class="testScope">
   <div class="testScopeHead"><div class="testScopeTitle">📝 定期テスト範囲を登録</div><div class="small">選んだUnitが色付きます</div></div>
   <div id="unitChips" class="unitChips"></div>
   <div class="scopeActions">
@@ -121,13 +133,13 @@ body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}
     <button id="clearTestUnits">テスト範囲を解除</button>
     <button id="scopeToListPdf" style="grid-column:1/-1;background:#e8f2ff">📄 登録した複数範囲を一覧PDFにする</button>
   </div>
-</div>
+</div></details>
 <div class="grid freqbar"><button id="hardOnly" class="hardbtn">★ 苦手だけ：OFF</button><button id="clearHard">苦手登録を消す</button></div>
 
 <div class="grid tools"><button id="shuffle">シャッフル</button><button id="resetOrder">元の順番</button><button id="clearWeak">要復習を消す</button><button id="clearAll">このユーザーをリセット</button></div>
 <div class="grid freqbar"><select id="freqMin"><option value="0">苦手頻度：通常</option><option value="2">2回以上ミスだけ</option><option value="3">3回以上ミスだけ</option><option value="5">5回以上ミスだけ</option><option value="10">10回以上ミスだけ</option></select><button id="showStats">📊 苦手集計を見る</button></div>
 
-<section id="unitListPanel" class="unitListPanel" aria-label="単語と意味の一覧PDF">
+<details class="foldSettings" id="unitListFold"><summary>📄 Unit別 英単語・意味一覧 PDF／記入テスト <span>開く・閉じる</span></summary><section id="unitListPanel" class="unitListPanel" aria-label="単語と意味の一覧PDF">
   <h3>📄 Unit別 英単語・意味一覧 PDF</h3>
   <div class="unitListHint">印刷したいUnit・範囲を選択（複数選択できます）。単語と日本語の意味を左右に並べたA4一覧を作成します。</div>
   <div class="unitListChoices" id="unitListChoices"></div>
@@ -137,7 +149,16 @@ body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))!important}
   </div>
   <div class="unitListHint" id="unitListCount"></div>
   <button id="printUnitList" class="primary" type="button">🖨 選んだUnitの一覧をPDF出力</button>
-</section>
+  <div class="testPrintBox">
+    <b>✏️ 記入式・単語テスト（A4縦・2列）</b>
+    <div class="unitListHint">上で選択したUnitを使います。日本語→英語は英語を書く欄、英語→日本語は意味を書く欄を作ります。</div>
+    <div class="unitListOptions">
+      <label>問題の方向 <select id="unitTestDirection"><option value="je">日本語 → 英語</option><option value="ej">英語 → 日本語</option></select></label>
+      <label>解答 <select id="unitTestAnswer"><option value="yes">解答を別ページに付ける</option><option value="no">問題のみ</option></select></label>
+    </div>
+    <button id="printUnitTest" class="primary" type="button">✏️ 選んだUnitの記入テストをPDF出力</button>
+  </div>
+</section></details>
 <div class="grid freqbar"><button id="toggleExport" class="primary">🖨 一覧・テストをPDF出力</button><button id="quickHardExport">★ 苦手一覧をPDF</button></div>
 <div id="exportPanel" class="exportPanel">
   <div style="font-weight:800;margin-bottom:9px;">🖨 PDF・テスト出力</div>
@@ -488,6 +509,59 @@ function printUnitWordList(){
   win.document.open();win.document.write(doc);win.document.close();
 }
 
+
+// Unit選択と連動するA4縦・2列の記入テスト
+function printUnitWritingTest(){
+  const grade=Number(state.grade);
+  const groups=unitListGroups().filter(g=>unitListSelected.includes(g.key));
+  if(!groups.length){alert('テストにするUnit・範囲を1つ以上選択してください。');return;}
+  const direction=document.getElementById('unitTestDirection').value;
+  const includeAnswer=document.getElementById('unitTestAnswer').value==='yes';
+  const alpha=document.getElementById('unitListOrder').value==='alpha';
+  const sections=[];
+  for(const group of groups){
+    const words=WORDS.filter(w=>w.grade===grade&&group.match(w));
+    if(alpha)words.sort((a,b)=>a.en.localeCompare(b.en,'en'));
+    else words.sort((a,b)=>(Number(a.sourceNo||a.seq||0)-Number(b.sourceNo||b.seq||0))||String(a.id).localeCompare(String(b.id)));
+    const label=`中${grade}　${group.label}`;
+    const rows=words.map((w,i)=>{
+      const question=direction==='je'?w.ja:w.en;
+      return `<div class="question"><div class="prompt"><b class="num">${i+1}.</b><span>${esc(question)}</span></div><div class="answerLine"></div></div>`;
+    }).join('');
+    sections.push(`<section class="testPage"><header><h2>${esc(label)}　英単語記入テスト</h2><div class="student">名前：__________________　日付：____________　得点：____ / ${words.length}</div><p>${direction==='je'?'日本語 → 英語':'英語 → 日本語'}　｜　${words.length}問</p></header><div class="questions">${rows}</div></section>`);
+    if(includeAnswer){
+      const answerRows=words.map((w,i)=>`<div class="keyRow"><b>${i+1}.</b> ${esc(direction==='je'?w.en:w.ja)}</div>`).join('');
+      sections.push(`<section class="testPage answerPage"><header><h2>${esc(label)}　解答</h2><p>${direction==='je'?'英単語':'日本語の意味'}</p></header><div class="answerGrid">${answerRows}</div></section>`);
+    }
+  }
+  const title=`中${grade} 英単語記入テスト（${direction==='je'?'日本語→英語':'英語→日本語'}）`;
+  const doc=`<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>
+  @page{size:A4 portrait;margin:12mm}
+  *{box-sizing:border-box}body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,Arial,sans-serif;color:#172333;margin:0;background:#edf0f4}
+  .toolbar{position:sticky;top:0;background:white;text-align:center;padding:12px;border-bottom:1px solid #ccc;z-index:5}
+  .toolbar button{padding:11px 20px;font-size:16px;font-weight:700;border:1px solid #99b2c9;border-radius:8px;background:#e6f1ff}
+  .toolbar small{display:block;font-size:12px;margin-top:5px}
+  .testPage{width:210mm;margin:14px auto;background:white;padding:12mm;box-shadow:0 1px 6px #0002;break-after:page;page-break-after:always}
+  .testPage:last-child{break-after:auto;page-break-after:auto}
+  header{margin-bottom:10px}h2{font-size:16px;margin:0 0 7px}header p{font-size:11px;margin:7px 0}
+  .student{font-size:11px}
+  .questions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10mm;row-gap:0;align-items:start}
+  .question{height:18mm;break-inside:avoid;page-break-inside:avoid;border-bottom:1px solid #d9dfe6;padding:2mm 1mm 1mm;min-width:0}
+  .prompt{display:flex;gap:5px;font-size:11px;line-height:1.35;overflow-wrap:anywhere;min-height:6mm}
+  .num{flex:0 0 24px}
+  .answerLine{height:7mm;border-bottom:1px solid #667587;margin:0 2mm 0 7mm}
+  .answerGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4mm 9mm;font-size:11px}
+  .keyRow{break-inside:avoid;overflow-wrap:anywhere}
+  @media print{
+    body{background:white}.toolbar{display:none}
+    .testPage{width:auto;margin:0;padding:0;box-shadow:none}
+  }
+  </style></head><body><div class="toolbar"><button onclick="window.print()">🖨 印刷・PDF保存</button><small>A4縦・2列で印刷してください。印刷先に「PDFに保存」を選べます。</small></div>${sections.join('')}</body></html>`;
+  const win=window.open('','_blank');
+  if(!win){alert('PDF用画面を開けませんでした。ポップアップを許可してください。');return;}
+  win.document.open();win.document.write(doc);win.document.close();
+}
+
 function renderStats(){const p=document.getElementById('statsPanel');if(!state.showStats){p.style.display='none';p.innerHTML='';return}const rows=baseCards().filter(c=>weakTimes(c.id)>0).sort((a,b)=>weakTimes(b.id)-weakTimes(a.id)||a.seq-b.seq).slice(0,20);p.style.display='block';if(!rows.length){p.innerHTML='<div class="empty">まだ「覚えていない」の集計がありません。</div>';return}p.innerHTML='<div style="background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px"><b>📊 苦手ランキング（上位20問）</b>'+rows.map((c,i)=>`<div style="display:grid;grid-template-columns:32px 1fr auto;gap:8px;padding:7px 0;border-top:${i?'1px solid var(--line)':'0'}"><span>${i+1}</span><span>${esc(c.en)} → ${esc(c.ja)}</span><b style="color:var(--red)">${weakTimes(c.id)}回</b></div>`).join('')+'</div>'}
 function render(){
   document.getElementById('grade').value=state.grade;document.getElementById('direction').value=state.direction;updateRangeOptions();renderTestScope();document.getElementById('freqMin').value=String(state.freqMin||0);
@@ -504,7 +578,7 @@ function render(){
   main.innerHTML=`<button class="card" id="card" type="button"><div class="meta">中${c.grade}　${sourceMeta}　${dirLabel}</div><div class="side">${state.showAnswer?'答え':'問題'}</div><div class="${state.showAnswer?'answer':'question'}">${esc(state.showAnswer?c.a:c.q)}</div>${accentHtml}<div class="status" style="margin-top:14px;margin-bottom:0"><span class="chip">覚えていない累計 ${weakTimes(c.id)}回</span></div>${state.showAnswer&&c.note?`<div class="noteBox">※ ${esc(c.note)}</div>`:''}<div class="hint">「覚えていない」を押すと自動で「苦手」に登録されます。苦手を外すときだけ「★ 苦手解除」を使います。<br>カードをタッチすると${state.showAnswer?'問題に戻ります':'答えが出ます'}</div></button><div class="lookup"><button id="speakBtn">🔊 発音</button><button id="accentBtn" class="accentToggle ${state.accentShow?'active':''}">🎯 アクセント：${state.accentShow?'ON':'OFF'}</button>${state.showAnswer?'<button id="aiBtn">🤖 AIに聞く</button><button id="searchBtn">🔎 Web検索</button>':''}</div><div class="actions"><button class="hardbtn ${state.hardIds.includes(c.id)?'active':''}" id="hardBtn" ${state.hardIds.includes(c.id)?'':'disabled'}>${state.hardIds.includes(c.id)?'★ 苦手解除':'☆ 苦手登録'}</button><button class="danger" id="weakBtn">覚えていない</button><button class="success" id="learnedBtn">覚えた</button></div><div class="nav"><button id="prevBtn">← 前へ</button><button id="flipBtn">${state.showAnswer?'問題を見る':'答えを見る'}</button><button id="nextBtn">次へ →</button><button id="removeWeakBtn">要復習から外す</button></div>`;
   document.getElementById('card').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('flipBtn').onclick=()=>{state.showAnswer=!state.showAnswer;save();render()};document.getElementById('prevBtn').onclick=prev;document.getElementById('nextBtn').onclick=next;document.getElementById('weakBtn').onclick=markWeak;document.getElementById('learnedBtn').onclick=markLearned;document.getElementById('hardBtn').onclick=toggleHard;document.getElementById('removeWeakBtn').onclick=()=>{state.weakIds=state.weakIds.filter(id=>id!==c.id);save();render()};document.getElementById('speakBtn').onclick=()=>speakEnglish(c.en);document.getElementById('accentBtn').onclick=()=>{state.accentShow=!state.accentShow;save();render()};if(state.showAnswer){document.getElementById('aiBtn').onclick=()=>aiAsk(c);document.getElementById('searchBtn').onclick=()=>webSearch(c)}
 }
-document.getElementById('printUnitList').onclick=printUnitWordList;document.getElementById('toggleExport').onclick=()=>document.getElementById('exportPanel').classList.toggle('open');document.getElementById('doExport').onclick=()=>runEnglishExport();document.getElementById('quickHardExport').onclick=()=>runEnglishExport('hard');document.getElementById('testOnly').onclick=()=>{state.testOnly=!state.testOnly;state.index=0;state.order=[];save();render()};
+document.getElementById('printUnitList').onclick=printUnitWordList;document.getElementById('printUnitTest').onclick=printUnitWritingTest;document.getElementById('toggleExport').onclick=()=>document.getElementById('exportPanel').classList.toggle('open');document.getElementById('doExport').onclick=()=>runEnglishExport();document.getElementById('quickHardExport').onclick=()=>runEnglishExport('hard');document.getElementById('testOnly').onclick=()=>{state.testOnly=!state.testOnly;state.index=0;state.order=[];save();render()};
 document.getElementById('scopeToListPdf').onclick=()=>{
   const keys=state.grade==='1'?state.testUnits.map(u=>'u'+u):state.testUnits3;
   if(!keys.length){alert('先に定期テスト範囲を1つ以上登録してください。');return;}
